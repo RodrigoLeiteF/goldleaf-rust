@@ -10,18 +10,14 @@ pub struct Command {
     pub magic_number: Option<i32>,
 
     output_cursor: Cursor<Vec::<u8>>,
-    output_buffer: Vec::<u8>,
 }
 
 impl Command {
     pub fn new() -> Self {
-        let output_buffer = Vec::<u8>::new();
-
         Command {
             id: None,
             magic_number: None,
-            output_cursor: Cursor::new(output_buffer.clone()),
-            output_buffer,
+            output_cursor: Cursor::new(Vec::<u8>::new()),
         }
     }
     
