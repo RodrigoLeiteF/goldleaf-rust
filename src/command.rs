@@ -15,33 +15,33 @@ pub struct Command {
 
 impl Command {
     pub fn new() -> Self {
-	let output_buffer = Vec::<u8>::new();
-	
-	Command {
-	    id: None,
-	    magic_number: None,
-	    output_cursor: Cursor::new(output_buffer.clone()),
-	    output_buffer,
-	}
+        let output_buffer = Vec::<u8>::new();
+
+        Command {
+            id: None,
+            magic_number: None,
+            output_cursor: Cursor::new(output_buffer.clone()),
+            output_buffer,
+        }
     }
     
     pub fn read<T: Serializable>(&mut self, input_buffer: Vec::<u8>) -> Result<i64, &'static str> {
-	let mut cursor = Cursor::new(input_buffer.clone());
+        let mut cursor = Cursor::new(input_buffer.clone());
 
-	self.magic_number = Some(cursor.read_i32::<LittleEndian>().expect("Could not read magic number"));
+        self.magic_number = Some(cursor.read_i32::<LittleEndian>().expect("Could not read magic number"));
 
-	if self.magic_number.unwrap() != INPUT_MAGIC_NUMBER {
-	    return Err("Magic number doesn't match that of Goldleaf")
-	}
+        if self.magic_number.unwrap() != INPUT_MAGIC_NUMBER {
+            return Err("Magic number doesn't match that of Goldleaf")
+        }
 
-	let foo = CommandIDs::try_from(1);
-	println!("{:?}", foo);
+        let foo = CommandIDs::try_from(1);
+        println!("{:?}", foo);
 
-	Ok(T::read(&mut cursor))
+        Ok(T::read(&mut cursor))
     }
 
     pub fn write<T: Serializable>(&mut self, data: i64) -> Result<(), std::io::Error> {
-	T::write(&mut self.output_cursor, data)
+        T::write(&mut self.output_cursor, data)
     }
 }
 
@@ -70,8 +70,8 @@ enum CommandIDs {
 
 impl CommandIDs {
     fn handle(&self, command: Command) -> Result<(), Box<dyn Error>> {
-	// Do something
-	Ok(())
+        // Do something
+        Ok(())
     }
 }
 
@@ -82,30 +82,30 @@ pub trait Serializable {
 
 impl Serializable for i32 {
     fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
-	cursor.read_i32::<LittleEndian>().expect("Could not read command id").into()
+        cursor.read_i32::<LittleEndian>().expect("Could not read command id").into()
     }
 
     fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error> {
-	cursor.write_i32::<LittleEndian>(byte.try_into().unwrap())
+        cursor.write_i32::<LittleEndian>(byte.try_into().unwrap())
     }
 }
 
 impl Serializable for i16 {
     fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
-	cursor.read_i16::<LittleEndian>().expect("Could not read command id").into()
+        cursor.read_i16::<LittleEndian>().expect("Could not read command id").into()
     }
 
     fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error> {
-	cursor.write_i16::<LittleEndian>(byte.try_into().unwrap())
+        cursor.write_i16::<LittleEndian>(byte.try_into().unwrap())
     }
 }
 
 impl Serializable for i64 {
     fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
-	cursor.read_i64::<LittleEndian>().expect("Could not read command id")
+        cursor.read_i64::<LittleEndian>().expect("Could not read command id")
     }
 
     fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error> {
-	cursor.write_i64::<LittleEndian>(byte)
+        cursor.write_i64::<LittleEndian>(byte)
     }
 }
