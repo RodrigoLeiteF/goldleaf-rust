@@ -22,9 +22,9 @@ impl Command {
     }
     
     pub fn read<T: Serializable>(&mut self, input_buffer: Vec::<u8>) -> Result<i64, &'static str> {
-        let mut cursor = Cursor::new(input_buffer.clone());
+        let mut cursor = Cursor::new(input_buffer);
 
-        self.magic_number = Some(cursor.read_i32::<LittleEndian>().expect("Could not read magic number"));
+        self.magic_number = Some(i32::read(&mut cursor).try_into().unwrap());
 
         if self.magic_number.unwrap() != INPUT_MAGIC_NUMBER {
             return Err("Magic number doesn't match that of Goldleaf")
