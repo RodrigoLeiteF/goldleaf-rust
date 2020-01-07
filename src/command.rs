@@ -34,9 +34,6 @@ impl Command {
             return Err("Magic number doesn't match that of Goldleaf")
         }
 
-        let foo = CommandIDs::try_from(1);
-        println!("{:?}", foo);
-
         Ok(T::read(&mut cursor))
     }
 
