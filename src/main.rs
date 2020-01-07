@@ -18,16 +18,3 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
-// fn read_command(handle: DeviceHandle<GlobalContext>) {
-    // let mut vec = Vec::<u8>::with_capacity(512);
-    // let buf =
-	// unsafe { slice::from_raw_parts_mut((&mut vec[..]).as_mut_ptr(), vec.capacity()) };
-// 
-    // let timeout = Duration::from_secs(20);
-// 
-    // let len = handle.read_bulk(READ_ENDPOINT, buf, timeout).expect("Could not read");
-    // unsafe { vec.set_len(len) };
-// 
-    // let command = command::Command::new().read::<i32>(vec);
-// }
