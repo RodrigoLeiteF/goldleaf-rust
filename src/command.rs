@@ -2,44 +2,43 @@ use std::{ convert::TryFrom, convert::TryInto, error::Error };
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use byteorder::{ ReadBytesExt, WriteBytesExt, LittleEndian };
 use num_enum::{ IntoPrimitive, TryFromPrimitive };
-use sysinfo::{ProcessExt, SystemExt};
+use sysinfo::{ProcessExt, SystemExt, DiskExt};
 
 const INPUT_MAGIC_NUMBER: i32 = 0x49434C47;
 const OUTPUT_MAGIC_NUMBER: i32 = 0x4F434C47;
 
 pub struct Command {
-    pub id: Option<i64>,
+    pub id: Option<i32>,
     pub magic_number: Option<i32>,
 
+    input_cursor: Cursor<Vec::<u8>>,
     output_cursor: Cursor<Vec::<u8>>,
 }
 
 impl Command {
-    pub fn new() -> Self {
+    pub fn new(input_buffer: Vec::<u8>) -> Self {
         Command {
             id: None,
             magic_number: None,
             output_cursor: Cursor::new(Vec::<u8>::new()),
+            input_cursor: Cursor::new(input_buffer),
         }
     }
     
-    pub fn read<T: Serializable>(&mut self, input_buffer: Vec::<u8>) -> Result<i64, &'static str> {
-        let mut cursor = Cursor::new(input_buffer);
-
-        self.magic_number = Some(i32::read(&mut cursor).try_into().unwrap());
-
-        if self.magic_number.unwrap() == 0 {
-            return Ok(0)
-        }
+    pub fn read<T: Serializable<T>>(&mut self) -> Result<T, &'static str> {
+        match self.magic_number {
+            None => self.magic_number = Some(i32::read(&mut self.input_cursor).try_into().unwrap()),
+            Some(_) => { println!("Magic number already exists?? {:?}", self.magic_number) },
+        };
 
         if self.magic_number.unwrap() != INPUT_MAGIC_NUMBER {
             return Err("Magic number doesn't match that of Goldleaf")
         }
 
-        Ok(T::read(&mut cursor))
+        Ok(T::read(&mut self.input_cursor))
     }
 
-    pub fn write<T: Serializable>(&mut self, data: i64) -> Result<(), std::io::Error> {
+    pub fn write<T: Serializable<T>>(&mut self, data: T) -> Result<(), std::io::Error> {
         T::write(&mut self.output_cursor, data)
     }
 
@@ -99,6 +98,7 @@ impl CommandIDs {
         match self {
             CommandIDs::Invalid => { println!("Invalid command!"); Ok(()) },
             CommandIDs::GetDriveCount => self.GetDriveCount(command),
+            CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
             _ => { println!("No handler available for command command: {:?}", command.id.unwrap()); Ok(()) },
         }
     }
@@ -112,34 +112,83 @@ impl CommandIDs {
 
         Ok(())
     }
+
+    fn GetDriveInfo(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
+        let index = command.read::<i32>()?;
+        let system: sysinfo::System = sysinfo::System::new();
+        let disk = system.get_disks().get(index as usize).unwrap();
+
+        let mount_point = disk.get_mount_point().to_str().unwrap().to_owned();
+        let label = disk.get_name().to_str().unwrap().to_owned();
+
+        println!("Index: {:?}", index);
+
+        command.response_start()?;
+        command.write::<String>(mount_point)?;
+        command.write::<String>(label)?;
+
+        Ok(())
+    }
 }
 
-pub trait Serializable {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64;
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error>;
+pub trait Serializable<T> {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> T;
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: T) -> Result<(), std::io::Error>;
 }
 
-impl Serializable for i32 {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
-        cursor.read_i32::<LittleEndian>().expect("Could not read command id").into()
+impl Serializable<String> for String {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> String {
+        let length = cursor.read_i32::<LittleEndian>().expect("Could not read command id");
+
+        let mut bytes = Vec::<u8>::with_capacity(512);
+        for b in 0..=length {
+            let byte = cursor.read_u8().unwrap();
+            bytes.push(byte);
+        }
+
+        String::from_utf8(bytes).unwrap()
     }
 
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error> {
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: String) -> Result<(), std::io::Error> {
+        cursor.write_i32::<LittleEndian>(byte.len().try_into().unwrap()).unwrap(); // Wow this is ugly
+
+        Ok(for b in byte.as_bytes() {
+            cursor.write_u16::<LittleEndian>(b.to_owned().into())?;
+        })
+    }
+}
+
+impl Serializable<u8> for u8 {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> u8 {
+        cursor.read_u8().expect("Could not read byte")
+    }
+
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: u8) -> Result<(), std::io::Error> {
+        cursor.write_u8(byte.try_into().unwrap())
+    }
+}
+
+impl Serializable<i32> for i32 {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i32 {
+        cursor.read_i32::<LittleEndian>().expect("Could not read command id")
+    }
+
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i32) -> Result<(), std::io::Error> {
         cursor.write_i32::<LittleEndian>(byte.try_into().unwrap())
     }
 }
 
-impl Serializable for i16 {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
-        cursor.read_i16::<LittleEndian>().expect("Could not read command id").into()
+impl Serializable<i16> for i16 {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i16 {
+        cursor.read_i16::<LittleEndian>().expect("Could not read command id")
     }
 
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error> {
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i16) -> Result<(), std::io::Error> {
         cursor.write_i16::<LittleEndian>(byte.try_into().unwrap())
     }
 }
 
-impl Serializable for i64 {
+impl Serializable<i64> for i64 {
     fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
         cursor.read_i64::<LittleEndian>().expect("Could not read command id")
     }
