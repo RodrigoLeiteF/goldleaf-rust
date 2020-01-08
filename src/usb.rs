@@ -1,3 +1,5 @@
+use log::Level;
+
 use std::{ slice, time::Duration, error::Error, convert::TryInto };
 use rusb::{ Device, GlobalContext, DeviceHandle, DeviceDescriptor };
 use crate::command::Command;
@@ -16,15 +18,19 @@ pub struct Interface {
 
 impl Interface {
     pub fn try_new() -> Result<Self, Box<dyn Error>> {
+        debug!("Looking for USB Device");
         let device = Interface::find_nintendo_switch().expect("could not find nintendo switch");
 
+        debug!("USB Device found. Initializing...");
         let mut handle = device.open()?;
         let descriptor = device.device_descriptor()?;
 
 
+        debug!("Setting the active configuration");
         // set active configuration so goldleaf can tell we want to communicate
         &handle.set_active_configuration(1)?;
 
+        debug!("Claiming the interface");
         // claim the interface we're going to write to
         &handle.claim_interface(INTERFACE)?;
 
@@ -52,18 +58,24 @@ impl Interface {
             if let Ok(len) = self.handle.read_bulk(READ_ENDPOINT, buf, timeout) {
                 unsafe { vec.set_len(len) };
 
+                debug!("Received command: {:?}", &vec[0..128]);
+
                 let mut command = Command::new(vec);
                 command.id = Some(command.read::<i32>().unwrap());
+
+                debug!("Handling command: {:?}", command.id);
                 let response = command.handle(command.id.unwrap().try_into().unwrap()).unwrap();
 
+                debug!("Writing response (truncated): {:?}", &response[0..128]);
                 let wrote_bytes = self.handle.write_bulk(WRITE_ENDPOINT, &response[..], timeout).unwrap();
-                println!("Wrote {:?} bytes", wrote_bytes);
+                debug!("Wrote {:?} bytes", wrote_bytes);
             }
         }
     }
 
     fn find_nintendo_switch() -> Option<Device<GlobalContext>> {
         let devices = rusb::devices().unwrap();
+        debug!("Found {:?} USB devices", devices.len());
 
         let device_match: Option<Device<GlobalContext>> = devices.iter().find(|device| {
             let device_desc = device.device_descriptor().unwrap();
