@@ -52,9 +52,9 @@ impl Interface {
             if let Ok(len) = self.handle.read_bulk(READ_ENDPOINT, buf, timeout) {
                 unsafe { vec.set_len(len) };
 
-                let mut command = Command::new();
-                command.id = Some(command.read::<i32>(vec).unwrap());
-                let response = command.handle(command.id.unwrap().try_into().unwrap());
+                let mut command = Command::new(vec);
+                command.id = Some(command.read::<i32>().unwrap());
+                let response = command.handle(command.id.unwrap().try_into().unwrap()).unwrap();
 
                 let wrote_bytes = self.handle.write_bulk(WRITE_ENDPOINT, &response[..], timeout).unwrap();
                 println!("Wrote {:?} bytes", wrote_bytes);
