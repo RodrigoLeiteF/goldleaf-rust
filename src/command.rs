@@ -92,12 +92,9 @@ enum CommandIDs {
 
 impl CommandIDs {
     fn handle(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        // Do something
         match self {
             CommandIDs::Invalid => println!("Invalid command!"),
             CommandIDs::GetDriveCount => self.GetDriveCount(command),
-            //CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
-            //CommandIDs::StatPath => self.StatPath(command),
             _ => { println!("No handler available for command command: {:?}", command.id.unwrap())},
         }
         Ok(())
@@ -110,9 +107,6 @@ impl CommandIDs {
         command.response_start().unwrap();
         command.write::<i32>(drives.try_into().unwrap()).unwrap();
     }
-
-    fn GetDriveInfo(&self) {}
-    fn StatPath(&self) {}
 }
 
 pub trait Serializable {
