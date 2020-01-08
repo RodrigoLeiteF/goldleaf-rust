@@ -1,6 +1,8 @@
-use std::{ io::Cursor, convert::TryFrom, convert::TryInto, error::Error };
+use std::{ convert::TryFrom, convert::TryInto, error::Error };
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use byteorder::{ ReadBytesExt, WriteBytesExt, LittleEndian };
 use num_enum::{ IntoPrimitive, TryFromPrimitive };
+use sysinfo::{ProcessExt, SystemExt};
 
 const INPUT_MAGIC_NUMBER: i32 = 0x49434C47;
 const OUTPUT_MAGIC_NUMBER: i32 = 0x4F434C47;
@@ -26,6 +28,10 @@ impl Command {
 
         self.magic_number = Some(i32::read(&mut cursor).try_into().unwrap());
 
+        if self.magic_number.unwrap() == 0 {
+            return Ok(0)
+        }
+
         if self.magic_number.unwrap() != INPUT_MAGIC_NUMBER {
             return Err("Magic number doesn't match that of Goldleaf")
         }
@@ -35,6 +41,29 @@ impl Command {
 
     pub fn write<T: Serializable>(&mut self, data: i64) -> Result<(), std::io::Error> {
         T::write(&mut self.output_cursor, data)
+    }
+
+    pub fn handle(&mut self, command_id: i32) -> Vec::<u8> {
+        println!("Command id: {:?}", command_id);
+        let command = CommandIDs::try_from(command_id).expect("Unrecognized command");
+        println!("Handling command: {:?}", command);
+        command.handle(self).unwrap();
+
+        let mut out = Vec::<u8>::with_capacity(4096);
+        self.output_cursor.set_position(0);
+        self.output_cursor.read_to_end(&mut out).unwrap();
+
+        // Fill the rest of the vector I guess?
+        out.resize(4096, 0);
+
+        out
+    }
+
+    pub fn response_start(&mut self) -> Result<(), std::io::Error> {
+        self.write::<i32>(OUTPUT_MAGIC_NUMBER.into())?;
+        self.write::<i32>(0)?;
+
+        Ok(())
     }
 }
 
@@ -62,10 +91,28 @@ enum CommandIDs {
 }
 
 impl CommandIDs {
-    fn handle(&self, command: Command) -> Result<(), Box<dyn Error>> {
+    fn handle(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         // Do something
+        match self {
+            CommandIDs::Invalid => println!("Invalid command!"),
+            CommandIDs::GetDriveCount => self.GetDriveCount(command),
+            //CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
+            //CommandIDs::StatPath => self.StatPath(command),
+            _ => { println!("No handler available for command command: {:?}", command.id.unwrap())},
+        }
         Ok(())
     }
+
+    fn GetDriveCount(&self, command: &mut Command) {
+        let mut system: sysinfo::System = sysinfo::System::new();
+        let drives = system.get_disks().into_iter().count();
+
+        command.response_start().unwrap();
+        command.write::<i32>(drives.try_into().unwrap()).unwrap();
+    }
+
+    fn GetDriveInfo(&self) {}
+    fn StatPath(&self) {}
 }
 
 pub trait Serializable {
