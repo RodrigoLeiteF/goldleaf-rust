@@ -99,6 +99,7 @@ impl CommandIDs {
             CommandIDs::Invalid => { println!("Invalid command!"); Ok(()) },
             CommandIDs::GetDriveCount => self.GetDriveCount(command),
             CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
+            CommandIDs::StatPath => self.StatPath(command),
             _ => { println!("No handler available for command command: {:?}", command.id.unwrap()); Ok(()) },
         }
     }
@@ -126,6 +127,22 @@ impl CommandIDs {
         command.response_start()?;
         command.write::<String>(mount_point)?;
         command.write::<String>(label)?;
+
+        Ok(())
+    }
+
+    fn StatPath(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
+        let path = command.read::<String>()?;
+        let metadata = std::fs::metadata(path)?;
+
+        let filetype = if metadata.is_file() {
+            1
+        } else {
+            2
+        };
+
+        command.write::<i32>(filetype)?;
+        command.write::<i64>(metadata.len().try_into().unwrap())?;
 
         Ok(())
     }
