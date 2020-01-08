@@ -8,7 +8,7 @@ const INPUT_MAGIC_NUMBER: i32 = 0x49434C47;
 const OUTPUT_MAGIC_NUMBER: i32 = 0x4F434C47;
 
 pub struct Command {
-    pub id: Option<i64>,
+    pub id: Option<i32>,
     pub magic_number: Option<i32>,
 
     input_cursor: Cursor<Vec::<u8>>,
@@ -25,12 +25,11 @@ impl Command {
         }
     }
     
-    pub fn read<T: Serializable>(&mut self) -> Result<i64, &'static str> {
-        self.magic_number = Some(i32::read(&mut self.input_cursor).try_into().unwrap());
-
-        if self.magic_number.unwrap() == 0 {
-            return Ok(0)
-        }
+    pub fn read<T: Serializable<T>>(&mut self) -> Result<T, &'static str> {
+        match self.magic_number {
+            None => self.magic_number = Some(i32::read(&mut self.input_cursor).try_into().unwrap()),
+            Some(_) => { println!("Magic number already exists?? {:?}", self.magic_number) },
+        };
 
         if self.magic_number.unwrap() != INPUT_MAGIC_NUMBER {
             return Err("Magic number doesn't match that of Goldleaf")
@@ -39,7 +38,7 @@ impl Command {
         Ok(T::read(&mut self.input_cursor))
     }
 
-    pub fn write<T: Serializable>(&mut self, data: i64) -> Result<(), std::io::Error> {
+    pub fn write<T: Serializable<T>>(&mut self, data: T) -> Result<(), std::io::Error> {
         T::write(&mut self.output_cursor, data)
     }
 
@@ -114,32 +113,64 @@ impl CommandIDs {
     }
 }
 
-pub trait Serializable {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64;
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error>;
+pub trait Serializable<T> {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> T;
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: T) -> Result<(), std::io::Error>;
 }
 
-impl Serializable for i32 {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
-        cursor.read_i32::<LittleEndian>().expect("Could not read command id").into()
+impl Serializable<String> for String {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> String {
+        let length = cursor.read_i32::<LittleEndian>().expect("Could not read command id");
+
+        let mut bytes = Vec::<u8>::with_capacity(512);
+        for b in 0..=length {
+            let byte = cursor.read_u8().unwrap();
+            bytes.push(byte);
+        }
+
+        String::from_utf8(bytes).unwrap()
     }
 
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error> {
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: String) -> Result<(), std::io::Error> {
+        cursor.write_i32::<LittleEndian>(byte.len().try_into().unwrap()).unwrap(); // Wow this is ugly
+
+        Ok(for b in byte.as_bytes() {
+            cursor.write_u16::<LittleEndian>(b.to_owned().into())?;
+        })
+    }
+}
+
+impl Serializable<u8> for u8 {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> u8 {
+        cursor.read_u8().expect("Could not read byte")
+    }
+
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: u8) -> Result<(), std::io::Error> {
+        cursor.write_u8(byte.try_into().unwrap())
+    }
+}
+
+impl Serializable<i32> for i32 {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i32 {
+        cursor.read_i32::<LittleEndian>().expect("Could not read command id")
+    }
+
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i32) -> Result<(), std::io::Error> {
         cursor.write_i32::<LittleEndian>(byte.try_into().unwrap())
     }
 }
 
-impl Serializable for i16 {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
-        cursor.read_i16::<LittleEndian>().expect("Could not read command id").into()
+impl Serializable<i16> for i16 {
+    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i16 {
+        cursor.read_i16::<LittleEndian>().expect("Could not read command id")
     }
 
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error> {
+    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i16) -> Result<(), std::io::Error> {
         cursor.write_i16::<LittleEndian>(byte.try_into().unwrap())
     }
 }
 
-impl Serializable for i64 {
+impl Serializable<i64> for i64 {
     fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
         cursor.read_i64::<LittleEndian>().expect("Could not read command id")
     }
