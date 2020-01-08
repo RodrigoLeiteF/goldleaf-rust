@@ -2,7 +2,7 @@ use std::{ convert::TryFrom, convert::TryInto, error::Error };
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use byteorder::{ ReadBytesExt, WriteBytesExt, LittleEndian };
 use num_enum::{ IntoPrimitive, TryFromPrimitive };
-use sysinfo::{ProcessExt, SystemExt};
+use sysinfo::{ProcessExt, SystemExt, DiskExt};
 
 const INPUT_MAGIC_NUMBER: i32 = 0x49434C47;
 const OUTPUT_MAGIC_NUMBER: i32 = 0x4F434C47;
@@ -98,6 +98,7 @@ impl CommandIDs {
         match self {
             CommandIDs::Invalid => { println!("Invalid command!"); Ok(()) },
             CommandIDs::GetDriveCount => self.GetDriveCount(command),
+            CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
             _ => { println!("No handler available for command command: {:?}", command.id.unwrap()); Ok(()) },
         }
     }
@@ -108,6 +109,23 @@ impl CommandIDs {
 
         command.response_start()?;
         command.write::<i32>(drives.try_into()?)?;
+
+        Ok(())
+    }
+
+    fn GetDriveInfo(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
+        let index = command.read::<i32>()?;
+        let system: sysinfo::System = sysinfo::System::new();
+        let disk = system.get_disks().get(index as usize).unwrap();
+
+        let mount_point = disk.get_mount_point().to_str().unwrap().to_owned();
+        let label = disk.get_name().to_str().unwrap().to_owned();
+
+        println!("Index: {:?}", index);
+
+        command.response_start()?;
+        command.write::<String>(mount_point)?;
+        command.write::<String>(label)?;
 
         Ok(())
     }
