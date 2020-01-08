@@ -54,7 +54,7 @@ impl Interface {
 
                 let mut command = Command::new();
                 command.id = Some(command.read::<i32>(vec).unwrap());
-                let response = command.handle(command.id.unwrap().try_into().unwrap());
+                let response = command.handle(command.id.unwrap().try_into().unwrap()).unwrap();
 
                 let wrote_bytes = self.handle.write_bulk(WRITE_ENDPOINT, &response[..], timeout).unwrap();
                 println!("Wrote {:?} bytes", wrote_bytes);

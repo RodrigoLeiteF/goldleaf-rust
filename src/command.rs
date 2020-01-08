@@ -43,20 +43,24 @@ impl Command {
         T::write(&mut self.output_cursor, data)
     }
 
-    pub fn handle(&mut self, command_id: i32) -> Vec::<u8> {
+    pub fn handle(&mut self, command_id: i32) -> Result<Vec::<u8>, Box<dyn Error>> {
         println!("Command id: {:?}", command_id);
         let command = CommandIDs::try_from(command_id).expect("Unrecognized command");
         println!("Handling command: {:?}", command);
-        command.handle(self).unwrap();
+
+        match command.handle(self) {
+            Ok(_) => println!("Handled!"),
+            Err(e) => return Err(e),
+        }
 
         let mut out = Vec::<u8>::with_capacity(4096);
         self.output_cursor.set_position(0);
-        self.output_cursor.read_to_end(&mut out).unwrap();
+        self.output_cursor.read_to_end(&mut out)?;
 
         // Fill the rest of the vector I guess?
         out.resize(4096, 0);
 
-        out
+        Ok(out)
     }
 
     pub fn response_start(&mut self) -> Result<(), std::io::Error> {
@@ -93,19 +97,20 @@ enum CommandIDs {
 impl CommandIDs {
     fn handle(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         match self {
-            CommandIDs::Invalid => println!("Invalid command!"),
+            CommandIDs::Invalid => { println!("Invalid command!"); Ok(()) },
             CommandIDs::GetDriveCount => self.GetDriveCount(command),
-            _ => { println!("No handler available for command command: {:?}", command.id.unwrap())},
+            _ => { println!("No handler available for command command: {:?}", command.id.unwrap()); Ok(()) },
         }
-        Ok(())
     }
 
-    fn GetDriveCount(&self, command: &mut Command) {
+    fn GetDriveCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         let mut system: sysinfo::System = sysinfo::System::new();
         let drives = system.get_disks().into_iter().count();
 
-        command.response_start().unwrap();
-        command.write::<i32>(drives.try_into().unwrap()).unwrap();
+        command.response_start()?;
+        command.write::<i32>(drives.try_into()?)?;
+
+        Ok(())
     }
 }
 
