@@ -11,22 +11,22 @@ pub struct Command {
     pub id: Option<i64>,
     pub magic_number: Option<i32>,
 
+    input_cursor: Cursor<Vec::<u8>>,
     output_cursor: Cursor<Vec::<u8>>,
 }
 
 impl Command {
-    pub fn new() -> Self {
+    pub fn new(input_buffer: Vec::<u8>) -> Self {
         Command {
             id: None,
             magic_number: None,
             output_cursor: Cursor::new(Vec::<u8>::new()),
+            input_cursor: Cursor::new(input_buffer),
         }
     }
     
-    pub fn read<T: Serializable>(&mut self, input_buffer: Vec::<u8>) -> Result<i64, &'static str> {
-        let mut cursor = Cursor::new(input_buffer);
-
-        self.magic_number = Some(i32::read(&mut cursor).try_into().unwrap());
+    pub fn read<T: Serializable>(&mut self) -> Result<i64, &'static str> {
+        self.magic_number = Some(i32::read(&mut self.input_cursor).try_into().unwrap());
 
         if self.magic_number.unwrap() == 0 {
             return Ok(0)
@@ -36,7 +36,7 @@ impl Command {
             return Err("Magic number doesn't match that of Goldleaf")
         }
 
-        Ok(T::read(&mut cursor))
+        Ok(T::read(&mut self.input_cursor))
     }
 
     pub fn write<T: Serializable>(&mut self, data: i64) -> Result<(), std::io::Error> {
