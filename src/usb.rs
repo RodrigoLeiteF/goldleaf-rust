@@ -56,8 +56,8 @@ impl Interface {
                 command.id = Some(command.read::<i32>(vec).unwrap());
                 let response = command.handle(command.id.unwrap().try_into().unwrap());
 
-                let foo = self.handle.write_bulk(WRITE_ENDPOINT, &response[..], timeout).unwrap();
-                println!("Written: {:?}", foo);
+                let wrote_bytes = self.handle.write_bulk(WRITE_ENDPOINT, &response[..], timeout).unwrap();
+                println!("Wrote {:?} bytes", wrote_bytes);
             }
         }
     }
