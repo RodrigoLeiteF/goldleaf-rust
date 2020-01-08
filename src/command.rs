@@ -1,3 +1,5 @@
+use log::Level;
+
 use std::{ convert::TryFrom, convert::TryInto, error::Error };
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use byteorder::{ ReadBytesExt, WriteBytesExt, LittleEndian };
@@ -28,7 +30,7 @@ impl Command {
     pub fn read<T: Serializable<T>>(&mut self) -> Result<T, &'static str> {
         match self.magic_number {
             None => self.magic_number = Some(i32::read(&mut self.input_cursor).try_into().unwrap()),
-            Some(_) => { println!("Magic number already exists?? {:?}", self.magic_number) },
+            Some(_) => {},
         };
 
         if self.magic_number.unwrap() != INPUT_MAGIC_NUMBER {
@@ -43,12 +45,11 @@ impl Command {
     }
 
     pub fn handle(&mut self, command_id: i32) -> Result<Vec::<u8>, Box<dyn Error>> {
-        println!("Command id: {:?}", command_id);
         let command = CommandIDs::try_from(command_id).expect("Unrecognized command");
-        println!("Handling command: {:?}", command);
+        debug!("Handling command: {:?} / ID: {:?}", command, command_id);
 
         match command.handle(self) {
-            Ok(_) => println!("Handled!"),
+            Ok(_) => debug!("Handled successfully"),
             Err(e) => return Err(e),
         }
 
@@ -95,17 +96,21 @@ enum CommandIDs {
 
 impl CommandIDs {
     fn handle(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
+        let resolved_command = CommandIDs::try_from(command.id.unwrap()).expect("Unrecognized command");
+
         match self {
-            CommandIDs::Invalid => { println!("Invalid command!"); Ok(()) },
+            CommandIDs::Invalid => { debug!("Invalid command received"); Ok(()) },
             CommandIDs::GetDriveCount => self.GetDriveCount(command),
             CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
-            _ => { println!("No handler available for command command: {:?}", command.id.unwrap()); Ok(()) },
+            _ => { debug!("No handler available for command: {:?}", resolved_command); Ok(()) },
         }
     }
 
     fn GetDriveCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         let mut system: sysinfo::System = sysinfo::System::new();
         let drives = system.get_disks().into_iter().count();
+
+        debug!("Found {:?} drives", drives);
 
         command.response_start()?;
         command.write::<i32>(drives.try_into()?)?;
@@ -116,12 +121,14 @@ impl CommandIDs {
     fn GetDriveInfo(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         let index = command.read::<i32>()?;
         let system: sysinfo::System = sysinfo::System::new();
+
         let disk = system.get_disks().get(index as usize).unwrap();
 
         let mount_point = disk.get_mount_point().to_str().unwrap().to_owned();
         let label = disk.get_name().to_str().unwrap().to_owned();
 
-        println!("Index: {:?}", index);
+        debug!("Requested disk index: {:?} | Mount point: {:?} | Label {:?}",
+               index, mount_point, label);
 
         command.response_start()?;
         command.write::<String>(mount_point)?;
