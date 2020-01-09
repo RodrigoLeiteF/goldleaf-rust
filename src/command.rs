@@ -170,13 +170,13 @@ impl Serializable<String> for String {
     fn read(cursor: &mut Cursor::<Vec<u8>>) -> String {
         let length = cursor.read_i32::<LittleEndian>().expect("Could not read command id");
 
-        let mut bytes = Vec::<u8>::with_capacity(512);
-        for b in 0..=length {
-            let byte = cursor.read_u8().unwrap();
+        let mut bytes = Vec::<u16>::with_capacity(512);
+        for b in 0..length {
+            let byte = cursor.read_u16::<LittleEndian>().unwrap();
             bytes.push(byte);
         }
 
-        String::from_utf8(bytes).unwrap()
+        String::from_utf16(&bytes).unwrap()
     }
 
     fn write(cursor: &mut Cursor::<Vec<u8>>, byte: String) -> Result<(), std::io::Error> {
