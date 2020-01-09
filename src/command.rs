@@ -177,7 +177,7 @@ impl CommandIDs {
                     .as_ref()
                     .unwrap()
                     .path()
-                    .is_dir())
+                    .is_file())
             .count();
 
         debug!("Found {:?} files in path {:?}", file_count, fixed_path);
