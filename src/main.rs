@@ -6,6 +6,7 @@ use env_logger;
 mod command;
 mod usb;
 mod filesystem;
+mod traits;
 
 #[derive(Debug)]
 struct Endpoint {
