@@ -1,12 +1,11 @@
 use std::error::Error;
 use std::io::{ Cursor, Read };
 use std::convert::{ TryInto, TryFrom };
-use std::fs::DirEntry;
 use num_enum::{ IntoPrimitive, TryFromPrimitive };
-use sysinfo::{ SystemExt, DiskExt };
 
 use crate::filesystem;
 use crate::traits::Serializable;
+use crate::handlers;
 
 const INPUT_MAGIC_NUMBER: i32 = 0x49434C47;
 const OUTPUT_MAGIC_NUMBER: i32 = 0x4F434C47;
@@ -102,177 +101,15 @@ impl CommandIDs {
 
         match self {
             CommandIDs::Invalid => { debug!("Invalid command received"); Ok(()) },
-            CommandIDs::GetDriveCount => self.GetDriveCount(command),
-            CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
-            CommandIDs::GetDirectory => self.GetDirectory(command),
-            CommandIDs::GetDirectoryCount => self.GetDirectoryCount(command),
-            CommandIDs::GetFile => self.GetFile(command),
-            CommandIDs::GetFileCount => self.GetFileCount(command),
-            CommandIDs::StatPath => self.StatPath(command),
+            CommandIDs::GetDriveCount => handlers::GetDriveCount(command),
+            CommandIDs::GetDriveInfo => handlers::GetDriveInfo(command),
+            CommandIDs::GetDirectory => handlers::GetDirectory(command),
+            CommandIDs::GetDirectoryCount => handlers::GetDirectoryCount(command),
+            CommandIDs::GetFile => handlers::GetFile(command),
+            CommandIDs::GetFileCount => handlers::GetFileCount(command),
+            CommandIDs::StatPath => handlers::StatPath(command),
             _ => { debug!("No handler available for command: {:?}", resolved_command); Ok(()) },
         }
-    }
-
-    fn GetDriveCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let system: sysinfo::System = sysinfo::System::new();
-        let drives = system.get_disks().into_iter().count();
-
-        debug!("Found {:?} drives", drives);
-
-        command.response_start()?;
-        command.write::<i32>(drives.try_into()?)?;
-
-        Ok(())
-    }
-
-    fn GetDriveInfo(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let index = command.read::<i32>()?;
-        let system: sysinfo::System = sysinfo::System::new();
-
-        let disk = system.get_disks().get(index as usize).unwrap();
-
-        let mount_point = disk.get_mount_point().to_str().unwrap().to_owned();
-        let label = disk.get_name().to_str().unwrap().to_owned();
-
-        debug!("Requested disk index: {:?} | Mount point: {:?} | Label {:?}",
-               index, mount_point, label);
-
-        command.response_start()?;
-        command.write::<String>(label)?;
-        command.write::<String>(mount_point)?;
-        command.write::<i32>(0)?;
-        command.write::<i32>(0)?;
-
-        Ok(())
-    }
-
-    fn GetDirectoryCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let path = command.read::<String>()?;
-
-        let fixed_path = filesystem::normalize_path(&path);
-        debug!("Requested path: {:?} | Fixed path: {:?}", path, fixed_path);
-
-        let directory_count = std::fs::read_dir(&fixed_path)?
-            .filter(|entry| entry
-                    .as_ref()
-                    .unwrap()
-                    .path()
-                    .is_dir())
-            .count();
-
-        debug!("Found {:?} directories in path {:?}", directory_count, fixed_path);
-
-        command.response_start()?;
-        command.write::<i32>(directory_count.try_into().expect("Could not convert to i32 for some reason"))?;
-
-        Ok(())
-    }
-
-    fn GetFileCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let path = command.read::<String>()?;
-
-        let fixed_path = filesystem::normalize_path(&path);
-        debug!("Requested path: {:?} | Fixed path: {:?}", path, fixed_path);
-
-        let file_count = std::fs::read_dir(&fixed_path)?
-            .filter(|entry| entry
-                    .as_ref()
-                    .unwrap()
-                    .path()
-                    .is_file())
-            .count();
-
-        debug!("Found {:?} files in path {:?}", file_count, fixed_path);
-
-        command.response_start()?;
-        command.write::<i32>(file_count.try_into().expect("Could not convert to i32 for some reason"))?;
-
-        Ok(())
-    }
-
-    fn GetDirectory(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let path = command.read::<String>()?;
-        let index = command.read::<i32>()?;
-
-        let fixed_path = filesystem::normalize_path(&path);
-        let directories: Vec<DirEntry> = std::fs::read_dir(fixed_path)?
-            .filter(|entry| {
-                entry.as_ref().unwrap().path().is_dir()
-            })
-            .map(|x| x.unwrap())
-            .collect();
-
-        let directory: &DirEntry = directories.get(index as usize).unwrap();
-        let name = directory
-            .path()
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_owned();
-
-        debug!("Found directory {:?} in {:?}", name, path);
-
-        command.response_start()?;
-        command.write::<String>(name)?;
-
-        Ok(())
-    }
-
-    fn GetFile(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let path = command.read::<String>()?;
-        let index = command.read::<i32>()?;
-
-        let fixed_path = filesystem::normalize_path(&path);
-
-        debug!("Requested directory: {:?} Index: {:?}", fixed_path, index);
-
-        let files: Vec<DirEntry> = std::fs::read_dir(fixed_path)?
-            .filter(|entry| {
-                entry.as_ref().unwrap().path().is_file()
-            })
-            .map(|x| x.unwrap())
-            .collect();
-
-        let file: &DirEntry = files.get(index as usize).unwrap();
-        let name = file
-            .path()
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_owned();
-
-        debug!("Found directory {:?} in {:?}", name, path);
-
-        command.response_start()?;
-        command.write::<String>(name)?;
-
-        Ok(())
-    }
-
-    fn StatPath(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let path = command.read::<String>()?;
-
-        let fixed_path = filesystem::normalize_path(&path);
-
-        debug!("Requested path: {:?}", fixed_path);
-
-        let path_buf = std::path::PathBuf::from(fixed_path);
-
-        command.response_start()?;
-
-        if path_buf.is_dir() {
-            command.write::<i32>(2)?;
-            command.write::<i64>(0)?;
-        } else {
-            let size = path_buf.metadata().unwrap().len().try_into().unwrap();
-
-            command.write::<i32>(1)?;
-            command.write::<i64>(size)?;
-        }
-
-        Ok(())
     }
 
 }

@@ -7,6 +7,7 @@ mod command;
 mod usb;
 mod filesystem;
 mod traits;
+mod handlers;
 
 #[derive(Debug)]
 struct Endpoint {
