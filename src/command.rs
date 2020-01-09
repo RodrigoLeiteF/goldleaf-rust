@@ -286,7 +286,7 @@ impl Serializable<String> for String {
         let length = cursor.read_i32::<LittleEndian>().expect("Could not read command id");
 
         let mut bytes = Vec::<u16>::with_capacity(512);
-        for b in 0..length {
+        for _b in 0..length {
             let byte = cursor.read_u16::<LittleEndian>().unwrap();
             bytes.push(byte);
         }
