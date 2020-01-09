@@ -7,6 +7,8 @@ use byteorder::{ ReadBytesExt, WriteBytesExt, LittleEndian };
 use num_enum::{ IntoPrimitive, TryFromPrimitive };
 use sysinfo::{ProcessExt, SystemExt, DiskExt};
 
+use crate::filesystem;
+
 const INPUT_MAGIC_NUMBER: i32 = 0x49434C47;
 const OUTPUT_MAGIC_NUMBER: i32 = 0x4F434C47;
 
@@ -148,7 +150,7 @@ impl CommandIDs {
     fn GetDirectoryCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         let path = command.read::<String>()?;
 
-        let fixed_path = path.replace(":", "");
+        let fixed_path = filesystem::normalize_path(&path);
         debug!("Requested path: {:?} | Fixed path: {:?}", path, fixed_path);
 
         let directory_count = std::fs::read_dir(&fixed_path)?
@@ -170,7 +172,7 @@ impl CommandIDs {
     fn GetFileCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         let path = command.read::<String>()?;
 
-        let fixed_path = path.replace(":", "");
+        let fixed_path = filesystem::normalize_path(&path);
         debug!("Requested path: {:?} | Fixed path: {:?}", path, fixed_path);
 
         let file_count = std::fs::read_dir(&fixed_path)?
@@ -193,7 +195,7 @@ impl CommandIDs {
         let path = command.read::<String>()?;
         let index = command.read::<i32>()?;
 
-        let fixed_path = path.replace(":", "");
+        let fixed_path = filesystem::normalize_path(&path);
         let directories: Vec<DirEntry> = std::fs::read_dir(fixed_path)?
             .filter(|entry| {
                 entry.as_ref().unwrap().path().is_dir()
@@ -222,7 +224,7 @@ impl CommandIDs {
         let path = command.read::<String>()?;
         let index = command.read::<i32>()?;
 
-        let fixed_path = path.replace(":", "");
+        let fixed_path = filesystem::normalize_path(&path);
 
         debug!("Requested directory: {:?} Index: {:?}", fixed_path, index);
 
@@ -253,7 +255,7 @@ impl CommandIDs {
     fn StatPath(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         let path = command.read::<String>()?;
 
-        let fixed_path = path.replace(":", "");
+        let fixed_path = filesystem::normalize_path(&path);
 
         debug!("Requested path: {:?}", fixed_path);
 
