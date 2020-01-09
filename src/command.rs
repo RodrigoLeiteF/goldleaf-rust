@@ -105,6 +105,7 @@ impl CommandIDs {
             CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
             CommandIDs::GetDirectory => self.GetDirectory(command),
             CommandIDs::GetDirectoryCount => self.GetDirectoryCount(command),
+            CommandIDs::GetFile => self.GetFile(command),
             CommandIDs::GetFileCount => self.GetFileCount(command),
             CommandIDs::StatPath => self.StatPath(command),
             _ => { debug!("No handler available for command: {:?}", resolved_command); Ok(()) },
@@ -202,6 +203,38 @@ impl CommandIDs {
 
         let directory: &DirEntry = directories.get(index as usize).unwrap();
         let name = directory
+            .path()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+
+        debug!("Found directory {:?} in {:?}", name, path);
+
+        command.response_start()?;
+        command.write::<String>(name)?;
+
+        Ok(())
+    }
+
+    fn GetFile(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
+        let path = command.read::<String>()?;
+        let index = command.read::<i32>()?;
+
+        let fixed_path = path.replace(":", "");
+
+        debug!("Requested directory: {:?} Index: {:?}", fixed_path, index);
+
+        let files: Vec<DirEntry> = std::fs::read_dir(fixed_path)?
+            .filter(|entry| {
+                entry.as_ref().unwrap().path().is_file()
+            })
+            .map(|x| x.unwrap())
+            .collect();
+
+        let file: &DirEntry = files.get(index as usize).unwrap();
+        let name = file
             .path()
             .file_name()
             .unwrap()
