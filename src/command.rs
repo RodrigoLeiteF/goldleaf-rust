@@ -102,6 +102,7 @@ impl CommandIDs {
             CommandIDs::Invalid => { debug!("Invalid command received"); Ok(()) },
             CommandIDs::GetDriveCount => self.GetDriveCount(command),
             CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
+            CommandIDs::GetDirectory => self.GetDirectory(command),
             _ => { debug!("No handler available for command: {:?}", resolved_command); Ok(()) },
         }
     }
@@ -133,6 +134,28 @@ impl CommandIDs {
         command.response_start()?;
         command.write::<String>(mount_point)?;
         command.write::<String>(label)?;
+
+    fn GetDirectoryCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
+        let path = command.read::<String>()?;
+
+        let fixed_path = path.split(":").collect::<Vec<&str>>()[0];
+        debug!("Requested path: {:?} | Fixed path: {:?}", path, fixed_path);
+
+        let directory_count = std::fs::read_dir(&fixed_path)?
+            .filter(|entry| entry
+                    .as_ref()
+                    .unwrap()
+                    .path()
+                    .is_dir())
+            .count();
+
+        debug!("Found {:?} directories in path {:?}", directory_count, fixed_path);
+
+        command.response_start()?;
+        command.write::<i32>(directory_count.try_into().expect("Could not convert to i32 for some reason"))?;
+
+        Ok(())
+    }
 
         Ok(())
     }
