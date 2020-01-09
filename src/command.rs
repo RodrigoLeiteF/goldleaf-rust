@@ -106,6 +106,7 @@ impl CommandIDs {
             CommandIDs::GetDirectory => self.GetDirectory(command),
             CommandIDs::GetDirectoryCount => self.GetDirectoryCount(command),
             CommandIDs::GetFileCount => self.GetFileCount(command),
+            CommandIDs::StatPath => self.StatPath(command),
             _ => { debug!("No handler available for command: {:?}", resolved_command); Ok(()) },
         }
     }
@@ -215,6 +216,31 @@ impl CommandIDs {
 
         Ok(())
     }
+
+    fn StatPath(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
+        let path = command.read::<String>()?;
+
+        let fixed_path = path.replace(":", "");
+
+        debug!("Requested path: {:?}", fixed_path);
+
+        let path_buf = std::path::PathBuf::from(fixed_path);
+
+        command.response_start()?;
+
+        if path_buf.is_dir() {
+            command.write::<i32>(2)?;
+            command.write::<i64>(0)?;
+        } else {
+            let size = path_buf.metadata().unwrap().len().try_into().unwrap();
+
+            command.write::<i32>(1)?;
+            command.write::<i64>(size)?;
+        }
+
+        Ok(())
+    }
+
 }
 
 pub trait Serializable<T> {
