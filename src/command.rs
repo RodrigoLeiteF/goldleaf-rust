@@ -148,7 +148,7 @@ impl CommandIDs {
     fn GetDirectoryCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         let path = command.read::<String>()?;
 
-        let fixed_path = path.split(":").collect::<Vec<&str>>()[0];
+        let fixed_path = path.replace(":", "");
         debug!("Requested path: {:?} | Fixed path: {:?}", path, fixed_path);
 
         let directory_count = std::fs::read_dir(&fixed_path)?
