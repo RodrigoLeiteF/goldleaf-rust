@@ -2,6 +2,7 @@ use log::Level;
 
 use std::{ convert::TryFrom, convert::TryInto, error::Error };
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::fs::DirEntry;
 use byteorder::{ ReadBytesExt, WriteBytesExt, LittleEndian };
 use num_enum::{ IntoPrimitive, TryFromPrimitive };
 use sysinfo::{ProcessExt, SystemExt, DiskExt};
@@ -134,8 +135,13 @@ impl CommandIDs {
                index, mount_point, label);
 
         command.response_start()?;
-        command.write::<String>(mount_point)?;
         command.write::<String>(label)?;
+        command.write::<String>(mount_point)?;
+        command.write::<i32>(0)?;
+        command.write::<i32>(0)?;
+
+        Ok(())
+    }
 
     fn GetDirectoryCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
         let path = command.read::<String>()?;
