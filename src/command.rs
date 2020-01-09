@@ -1,11 +1,9 @@
-use log::Level;
-
 use std::{ convert::TryFrom, convert::TryInto, error::Error };
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{ Cursor, Read };
 use std::fs::DirEntry;
 use byteorder::{ ReadBytesExt, WriteBytesExt, LittleEndian };
 use num_enum::{ IntoPrimitive, TryFromPrimitive };
-use sysinfo::{ProcessExt, SystemExt, DiskExt};
+use sysinfo::{ SystemExt, DiskExt };
 
 use crate::filesystem;
 
