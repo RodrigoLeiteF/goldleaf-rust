@@ -113,7 +113,7 @@ impl CommandIDs {
     }
 
     fn GetDriveCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let mut system: sysinfo::System = sysinfo::System::new();
+        let system: sysinfo::System = sysinfo::System::new();
         let drives = system.get_disks().into_iter().count();
 
         debug!("Found {:?} drives", drives);
