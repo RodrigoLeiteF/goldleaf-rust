@@ -97,7 +97,7 @@ enum CommandIDs {
 
 impl CommandIDs {
     fn handle(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let resolved_command = CommandIDs::try_from(command.id.unwrap()).expect("Unrecognized command");
+        let resolved_command = CommandIDs::try_from(command.id.unwrap()).unwrap_or(CommandIDs::Invalid);
 
         match self {
             CommandIDs::Invalid => { debug!("Invalid command received"); Ok(()) },
