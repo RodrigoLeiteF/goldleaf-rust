@@ -9,17 +9,8 @@ jobs:
       - restore_cache:
           key: project-cache
       - run:
-          name: Install Wine
-          command: 'dpkg --add-architecture i386 && apt-get update && apt-get install -y mingw-w64 wine64 wine32'
-      - run:
-          name: Install Windows target
-          command: 'rustup target add x86_64-pc-windows-gnu'
-      - run:
           name: Install Cargo Deb
           command: 'cargo install cargo-deb'
-      - run:
-          name: Build Windows x86_64 binary
-          command: 'cargo rustc --release --target=x86_64-pc-windows-gnu -- -C linker=x86_64-w64-mingw32-gcc -C ar=x86_64-w64-mingw32-ar -C runner=wine'
       - run:
           name: Build Linux x86_64 binary
           command: 'cargo build --target x86_64-unknown-linux-gnu --release'
