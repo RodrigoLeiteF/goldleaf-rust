@@ -24,14 +24,13 @@ jobs:
             - "~/.cargo"
       - run:
           name: Chmod Linux binary
-          command: 'chmod +x ~/goldcrab/target/x86_64-unknown-linux-gnu/release/funkwhale-cli'
+          command: 'chmod +x ~/goldcrab/target/x86_64-unknown-linux-gnu/release/goldcrab'
       - run:
           name: Move binaries
           command: |
             mkdir binaries
-            mv ~/goldcrab/target/x86_64-unknown-linux-gnu/release/funkwhale-cli binaries/funkwhale-cli-linux-x86_64
-            mv ~/goldcrab/target/debian/funkwhale*.deb binaries/funkwhale-cli-debian-x86_64.deb
-            mv ~/goldcrab/target/x86_64-pc-windows-gnu/release/funkwhale-cli.exe binaries/funkwhale-cli.exe
+            mv ~/goldcrab/target/x86_64-unknown-linux-gnu/release/goldcrab binaries/goldcrab-linux-x86_64
+            mv ~/goldcrab/target/debian/goldcrab*.deb binaries/goldcrab-debian-x86_64.deb
       - store_artifacts:
           path: ~/goldcrab/binaries
       - persist_to_workspace:
