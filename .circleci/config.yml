@@ -1,0 +1,66 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/goldcrab
+    docker:
+      - image: tomaka/rust-mingw-docker:latest
+    steps:
+      - checkout
+      - restore_cache:
+          key: project-cache
+      - run:
+          name: Install Windows stuff
+          command: 'rustup target add x86_64-pc-windows-gnu'
+      - run:
+          name: Install Cargo Deb
+          command: 'cargo install cargo-deb'
+      - run:
+          name: Build Windows x86_64 binary
+          command: 'cargo rustc --release --target=x86_64-pc-windows-gnu -- -C linker=x86_64-w64-mingw32-gcc'
+      - run:
+          name: Build Linux x86_64 binary
+          command: 'cargo build --target x86_64-unknown-linux-gnu --release'
+      - run:
+          name: Build Linux x86_64 .deb package
+          command: 'cargo deb'
+      - save_cache:
+          key: project-cache
+          paths:
+            - "target"
+            - "~/.cargo"
+      - run:
+          name: Chmod Linux binary
+          command: 'chmod +x ~/goldcrab/target/x86_64-unknown-linux-gnu/release/funkwhale-cli'
+      - run:
+          name: Move binaries
+          command: |
+            mkdir binaries
+            mv ~/goldcrab/target/x86_64-unknown-linux-gnu/release/funkwhale-cli binaries/funkwhale-cli-linux-x86_64
+            mv ~/goldcrab/target/debian/funkwhale*.deb binaries/funkwhale-cli-debian-x86_64.deb
+            mv ~/goldcrab/target/x86_64-pc-windows-gnu/release/funkwhale-cli.exe binaries/funkwhale-cli.exe
+      - store_artifacts:
+          path: ~/goldcrab/binaries
+      - persist_to_workspace:
+          root: ~/goldcrab
+          paths:
+            - binaries/goldcrab-linux-x86_64
+            - binaries/goldcrab.exe
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build
+      - make_pre_release:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - dev
+      - make_releas:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - master
