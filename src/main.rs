@@ -1,11 +1,13 @@
 #[macro_use] extern crate log;
 
-use std::{ process, slice, time::Duration, error::Error };
-use rusb::{ Device, GlobalContext, DeviceHandle };
+use std::error::Error;
 use env_logger;
 
 mod command;
 mod usb;
+mod filesystem;
+mod traits;
+mod handlers;
 
 #[derive(Debug)]
 struct Endpoint {

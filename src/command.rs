@@ -1,10 +1,11 @@
-use log::Level;
-
-use std::{ convert::TryFrom, convert::TryInto, error::Error };
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
-use byteorder::{ ReadBytesExt, WriteBytesExt, LittleEndian };
+use std::error::Error;
+use std::io::{ Cursor, Read };
+use std::convert::{ TryInto, TryFrom };
 use num_enum::{ IntoPrimitive, TryFromPrimitive };
-use sysinfo::{ProcessExt, SystemExt, DiskExt};
+
+use crate::filesystem;
+use crate::traits::Serializable;
+use crate::handlers;
 
 const INPUT_MAGIC_NUMBER: i32 = 0x49434C47;
 const OUTPUT_MAGIC_NUMBER: i32 = 0x4F434C47;
@@ -96,111 +97,19 @@ enum CommandIDs {
 
 impl CommandIDs {
     fn handle(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let resolved_command = CommandIDs::try_from(command.id.unwrap()).expect("Unrecognized command");
+        let resolved_command = CommandIDs::try_from(command.id.unwrap()).unwrap_or(CommandIDs::Invalid);
 
         match self {
             CommandIDs::Invalid => { debug!("Invalid command received"); Ok(()) },
-            CommandIDs::GetDriveCount => self.GetDriveCount(command),
-            CommandIDs::GetDriveInfo => self.GetDriveInfo(command),
+            CommandIDs::GetDriveCount => handlers::GetDriveCount(command),
+            CommandIDs::GetDriveInfo => handlers::GetDriveInfo(command),
+            CommandIDs::GetDirectory => handlers::GetDirectory(command),
+            CommandIDs::GetDirectoryCount => handlers::GetDirectoryCount(command),
+            CommandIDs::GetFile => handlers::GetFile(command),
+            CommandIDs::GetFileCount => handlers::GetFileCount(command),
+            CommandIDs::StatPath => handlers::StatPath(command),
             _ => { debug!("No handler available for command: {:?}", resolved_command); Ok(()) },
         }
     }
 
-    fn GetDriveCount(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let mut system: sysinfo::System = sysinfo::System::new();
-        let drives = system.get_disks().into_iter().count();
-
-        debug!("Found {:?} drives", drives);
-
-        command.response_start()?;
-        command.write::<i32>(drives.try_into()?)?;
-
-        Ok(())
-    }
-
-    fn GetDriveInfo(&self, command: &mut Command) -> Result<(), Box<dyn Error>> {
-        let index = command.read::<i32>()?;
-        let system: sysinfo::System = sysinfo::System::new();
-
-        let disk = system.get_disks().get(index as usize).unwrap();
-
-        let mount_point = disk.get_mount_point().to_str().unwrap().to_owned();
-        let label = disk.get_name().to_str().unwrap().to_owned();
-
-        debug!("Requested disk index: {:?} | Mount point: {:?} | Label {:?}",
-               index, mount_point, label);
-
-        command.response_start()?;
-        command.write::<String>(mount_point)?;
-        command.write::<String>(label)?;
-
-        Ok(())
-    }
-}
-
-pub trait Serializable<T> {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> T;
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: T) -> Result<(), std::io::Error>;
-}
-
-impl Serializable<String> for String {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> String {
-        let length = cursor.read_i32::<LittleEndian>().expect("Could not read command id");
-
-        let mut bytes = Vec::<u8>::with_capacity(512);
-        for b in 0..=length {
-            let byte = cursor.read_u8().unwrap();
-            bytes.push(byte);
-        }
-
-        String::from_utf8(bytes).unwrap()
-    }
-
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: String) -> Result<(), std::io::Error> {
-        cursor.write_i32::<LittleEndian>(byte.len().try_into().unwrap()).unwrap(); // Wow this is ugly
-
-        Ok(for b in byte.as_bytes() {
-            cursor.write_u16::<LittleEndian>(b.to_owned().into())?;
-        })
-    }
-}
-
-impl Serializable<u8> for u8 {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> u8 {
-        cursor.read_u8().expect("Could not read byte")
-    }
-
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: u8) -> Result<(), std::io::Error> {
-        cursor.write_u8(byte.try_into().unwrap())
-    }
-}
-
-impl Serializable<i32> for i32 {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i32 {
-        cursor.read_i32::<LittleEndian>().expect("Could not read command id")
-    }
-
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i32) -> Result<(), std::io::Error> {
-        cursor.write_i32::<LittleEndian>(byte.try_into().unwrap())
-    }
-}
-
-impl Serializable<i16> for i16 {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i16 {
-        cursor.read_i16::<LittleEndian>().expect("Could not read command id")
-    }
-
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i16) -> Result<(), std::io::Error> {
-        cursor.write_i16::<LittleEndian>(byte.try_into().unwrap())
-    }
-}
-
-impl Serializable<i64> for i64 {
-    fn read(cursor: &mut Cursor::<Vec<u8>>) -> i64 {
-        cursor.read_i64::<LittleEndian>().expect("Could not read command id")
-    }
-
-    fn write(cursor: &mut Cursor::<Vec<u8>>, byte: i64) -> Result<(), std::io::Error> {
-        cursor.write_i64::<LittleEndian>(byte)
-    }
 }

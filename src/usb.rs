@@ -1,5 +1,3 @@
-use log::Level;
-
 use std::{ slice, time::Duration, error::Error, convert::TryInto };
 use rusb::{ Device, GlobalContext, DeviceHandle, DeviceDescriptor };
 use crate::command::Command;
